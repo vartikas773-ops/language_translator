@@ -20,7 +20,7 @@ def watch_clipboard():
                 input_text.insert(tk.END, current)
         except Exception:
             pass
-        time.sleep(1.5)  # Check every 1.5 seconds
+        time.sleep(1.5)
 
 translator = Translator()
 translation_history = []
@@ -30,6 +30,20 @@ root = tk.Tk()
 root.title("Language Translator")
 root.geometry("700x600")
 root.configure(bg="#fcefee")
+
+toggle_top_frame = tk.Frame(root, bg="#fcefee")
+toggle_top_frame.pack(pady=(10, 0))
+
+spell_check_enabled = tk.BooleanVar(value=False)
+
+spell_toggle = ttk.Checkbutton(
+    toggle_top_frame,
+    text="Enable Spell Check",
+    variable=spell_check_enabled,
+    onvalue=True,
+    offvalue=False
+)
+spell_toggle.grid(row=0, column=0, padx=10)
 
 style = ttk.Style()
 style.configure("TLabel", background="#fcefee", font=("Helvetica", 18))
@@ -59,7 +73,7 @@ input_box.pack(side="left", padx=10)
 
 input_label = ttk.Label(input_box, text="Enter text:")
 input_label.pack()
-input_text = tk.Text(input_box, height=17, width=30, wrap="word", font=("Helvetica", 11))
+input_text = tk.Text(input_box, height=19, width=30, wrap="word", font=("Helvetica", 11))
 input_text.pack()
 
 output_box = tk.Frame(text_frame, bg="#f9d5e5")
@@ -67,8 +81,34 @@ output_box.pack(side="left", padx=10)
 
 output_label = ttk.Label(output_box, text="Translated text:")
 output_label.pack()
-output_text = tk.Text(output_box, height=17, width=30, wrap="word", font=("Helvetica", 11), bg="#fff0f5")
+output_text = tk.Text(output_box, height=19, width=30, wrap="word", font=("Helvetica", 11))
 output_text.pack()
+
+button_frame = tk.Frame(root)
+button_frame.pack(pady=10)
+
+from spellchecker import SpellChecker
+spell = SpellChecker()
+
+def highlight_spelling_issues(event=None):
+    if not spell_check_enabled.get():
+        input_text.tag_remove("spell", "1.0", tk.END)
+        return
+
+    input_text.tag_remove("spell", "1.0", tk.END)
+    text = input_text.get("1.0", tk.END)
+    words = text.split()
+    misspelled = spell.unknown(words)
+
+    for word in misspelled:
+        start = input_text.search(word, "1.0", tk.END)
+        while start:
+            end = f"{start}+{len(word)}c"
+            input_text.tag_add("spell", start, end)
+            start = input_text.search(word, end, tk.END)
+
+input_text.bind("<KeyRelease>", highlight_spelling_issues)
+input_text.tag_config("spell", background="#fff0f0", underline=True)
 
 def translate_text():
     try:
@@ -100,20 +140,11 @@ def speak_text():
         messagebox.showerror("Error", str(e))
 
 def speech_to_text():
-    messagebox.showinfo("Info", "Copy your spoken text from Dictation.io — it will auto-paste here.")
+    messagebox.showinfo("Display Box", "Copy your spoken text from Dictation.io and it will auto-paste here")
 
-def watch_clipboard():
-    global last_clipboard
-    while True:
-        try:
-            current = pyperclip.paste()
-            if current != last_clipboard and len(current.strip()) > 0:
-                last_clipboard = current
-                input_text.delete("1.0", tk.END)
-                input_text.insert(tk.END, current)
-        except Exception:
-            pass
-        time.sleep(1.5)
+def clear_fields():
+    input_text.delete("1.0", tk.END)
+    output_text.delete("1.0", tk.END)
 
 def open_speech_tool():
     try:
@@ -165,10 +196,16 @@ history_btn.grid(row=0, column=2, padx=10)
 open_tool_btn = ttk.Button(button_frame, text="Open Speech Tool", command=open_speech_tool)
 open_tool_btn.grid(row=0, column=3, padx=10)
 
+clear_button = tk.Button(root, text="Clear", command=clear_fields,font=("Helvetica", 10))
+clear_button.place(x=295, y=424)
+
+button_frame = tk.Frame(root, bg="#fcefee", bd=1, relief="ridge")
+button_frame.pack(pady=10)
+
 threading.Thread(target=watch_clipboard, daemon=True).start()
 def on_close():
     try:
-        pyperclip.copy("")  # Clear clipboard
+        pyperclip.copy("")
     except Exception:
         pass
     root.destroy()
